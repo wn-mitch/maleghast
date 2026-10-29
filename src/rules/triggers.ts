@@ -34,6 +34,8 @@ export function* offer(x: Ctx, trigger: Trigger, subject: Unit): Gen {
   const { g } = x;
   for (let side = 0; side < g.sides; side++) {
     if (ACTOR_ONLY.includes(trigger) && side !== x.side) continue;
+    // A unit about to be slain can only be saved by its own side.
+    if (trigger === "slain" && side !== subject.side) continue;
     if (g.soulUsed[side] || g.phase !== "battle") continue;
     const necro = necromancerOf(g, side);
     if (!necro) continue;

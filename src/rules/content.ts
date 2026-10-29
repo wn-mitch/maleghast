@@ -54,6 +54,8 @@ export interface Ability {
   readonly curse?: boolean;
   readonly reload?: boolean;
   readonly soul?: SoulTiming;
+  /** Whether it can be used now, beyond the usual checks (LV4 living cannon's double reload, p30). */
+  usable?(g: Game, u: Unit): boolean;
   resolve(x: Ctx, t: Target): Gen;
 }
 
@@ -132,4 +134,14 @@ export const hooks: {
   cover: ((g: Game, target: Unit) => { col: number; row: number }[])[];
   /** Rules that run once an ACT ability resolves, such as Bone Shards (p28). */
   after: ((x: Ctx) => Gen)[];
-} = { enter: [], range: [], trait: [], df: [], cover: [], after: [] };
+  /** Changes to an ability's minimum range, such as Gun Kata (p30). */
+  minRange: ((g: Game, u: Unit, a: Ability, min: number) => number)[];
+  /** Rules that run when a unit reloads. */
+  reload: ((g: Game, u: Unit) => void)[];
+  /** Whether a unit has something to reload besides its spent reload abilities. */
+  reloadable: ((g: Game, u: Unit) => boolean)[];
+  /** Rules that run as a unit's turn ends, such as Blood Boil's explosion (p36). */
+  endTurn: ((x: Ctx, u: Unit) => Gen)[];
+  /** Rules that run when the acting unit slays another, such as Blood Drinker (p36). */
+  slay: ((x: Ctx, victim: Unit) => void)[];
+} = { enter: [], range: [], trait: [], df: [], cover: [], after: [], minRange: [], reload: [], reloadable: [], endTurn: [], slay: [] };

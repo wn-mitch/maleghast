@@ -117,6 +117,7 @@ function* activate(g: Game, side: number, ids: readonly string[]): Gen {
   for (const u of us) check(u && u.side === side && !u.done, "that unit can't take a turn");
   if (us.length === 2) check(us.every((u) => defOf(u!.kind).type === "thrall"), "only thralls activate two at a time");
   g.active = us.map((u) => ({ id: u!.id, moves: 0, acted: false }));
+  g.activations++;
   g.soulUsed = g.soulUsed.map(() => false);
   for (const u of us) yield* startTurn(g, u!);
 }
@@ -165,7 +166,8 @@ function* move(g: Game, side: number, id: string, path: readonly Cell[], boost: 
   for (const [i, c] of path.entries()) {
     check(Math.abs(c.col - at.col) + Math.abs(c.row - at.row) === 1, "moves go one orthogonal space at a time");
     check(footprint(c, u.size).every((p) => inBounds(g.board, p) && !isWall(g.board, p)), "a wall or the edge is in the way");
-    check(!footprint(c, u.size).some((p) => g.units.some((v) => v !== u && v.side !== u.side && cellsOf(v).some((w) => w.col === p.col && w.row === p.row))), "a foe is in the way");
+    const through = hasTrait(g, u, "passThrough");
+    check(through || !footprint(c, u.size).some((p) => g.units.some((v) => v !== u && v.side !== u.side && cellsOf(v).some((w) => w.col === p.col && w.row === p.row))), "a foe is in the way");
     cost += stepCost(g.board, at, c, u.size);
     check(cost <= budget || (i === 0 && path.length === 1), "not enough movement");
     at = c;
@@ -196,9 +198,10 @@ function reload(g: Game, side: number, id: string): void {
   const a = activeOf(g, side, id);
   check(canMove(a), "no MOVE left to sacrifice");
   const u = unit(g, id)!;
-  check(u.unloaded, `${nameOf(u)} has nothing to reload`);
+  check(u.unloaded || hooks.reloadable.some((h) => h(g, u)), `${nameOf(u)} has nothing to reload`);
   a.moves++;
   u.unloaded = false;
+  for (const h of hooks.reload) h(g, u);
   log(g, `${nameOf(u)} reloads`, u.id);
   if (hasTrait(g, u, "hotClip")) give(g, u, "strength");
 }
@@ -219,6 +222,7 @@ export function targetError(g: Game, u: Unit, a: Ability, t: Target): string | n
     return cellsOf(u).some((c) => Math.abs(c.col - t.cell.col) + Math.abs(c.row - t.cell.row) === 1) && !cellsOf(u).some((c) => c.col === t.cell.col && c.row === t.cell.row) ? null : "a line starts beside its user";
   }
   const max = tg.max + hooks.range.reduce((s, h) => s + h(g, u, a), 0);
+  const min = hooks.minRange.reduce((m, h) => h(g, u, a, m), tg.min);
   let cells: Cell[];
   if (t.kind === "unit") {
     const v = unit(g, t.id);
@@ -231,7 +235,7 @@ export function targetError(g: Game, u: Unit, a: Ability, t: Target): string | n
     cells = [t.cell];
   } else return "pick a unit";
   const d = gap(cellsOf(u), cells);
-  if (d < tg.min || d > max) return `out of range (${tg.min}-${max})`;
+  if (d < min || d > max) return `out of range (${min}-${max})`;
   if (d > 0 && !sees(g.board, cellsOf(u), cells)) return "no line of sight";
   return null;
 }
@@ -245,11 +249,13 @@ function* act(g: Game, side: number, id: string, abilityId: string, t: Target): 
   check(!(ab.reload && u.unloaded), `${nameOf(u)} must reload first`);
   const why = targetError(g, u, ab, t);
   check(why === null, why ?? "");
+  check(!ab.usable || ab.usable(g, u), `${ab.name} isn't ready`);
   a.acted = true;
+  // A reload ability is spent as it fires, so its own effects can reload it (Clutch Reload, p30).
+  if (ab.reload) u.unloaded = true;
   log(g, `${nameOf(u)} uses ${ab.name}`, u.id);
   const x = ctx(g, u, ab);
   yield* ab.resolve(x, t);
-  if (ab.reload) u.unloaded = true;
   yield* afterAct(x);
 }
 
@@ -296,6 +302,8 @@ function* end(g: Game, side: number): Gen {
     const u = unit(g, a.id);
     if (!u) continue;
     u.done = true;
+    for (const h of hooks.endTurn) yield* h(ctx(g, u, null), u);
+    if (!unit(g, u.id)) continue;
     const n = g.turns[u.id] ?? 0;
     g.lasting = g.lasting.filter((l) => !(l.owner === u.id && l.at === "end" && l.turn <= n));
   }

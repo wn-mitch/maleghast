@@ -98,6 +98,10 @@ export function* damage(x: Ctx, target: Unit, amount: number, how: Hurt = {}): G
   const { g } = x;
   const type = how.type ?? "physical";
   if (target.hp <= 0 && !target.raging) return 0;
+  if (hasTrait(g, target, "immune")) {
+    log(g, `${nameOf(target)} is immune to damage`, target.id);
+    return 0;
+  }
   if (type === "curse" && hasTrait(g, target, "curseproof")) {
     log(g, `${nameOf(target)} is curseproof`, target.id);
     return 0;
@@ -168,6 +172,15 @@ export function armorOf(g: Game, u: Unit): string {
 export function* slay(x: Ctx, u: Unit, obliterate: boolean): Gen {
   const { g } = x;
   if (!g.units.includes(u)) return;
+  if (!obliterate) {
+    // A rule may refuse the death (Blood Boil, p36): the unit then stays at 0 hp.
+    yield* offer(x, "slain", u);
+    if (hasTrait(g, u, "immune")) {
+      u.hp = 0;
+      return;
+    }
+  }
+  if (x.actor !== u && x.actor.side !== u.side) for (const h of hooks.slay) h(x, u);
   u.hp = 0;
   u.raging = false;
   g.units = g.units.filter((v) => v !== u);
@@ -243,12 +256,12 @@ export function* attack(x: Ctx, target: Unit, type: DamageType = "physical", ext
   return { hit, headshot, result: r.result };
 }
 
-/** An effect die (p15): whether a d6 comes up `n` or more. */
-export function effect(g: Game, n: number): boolean {
+/** Roll an ability's one effect die (p15); compare it with each "(X+)" the ability lists. */
+export function effectDie(g: Game): number {
   const r = pool(g.seed, 1);
   g.seed = r.seed;
-  log(g, `Effect die: ${r.result} (needs ${n}+)`);
-  return r.result >= n;
+  log(g, `Effect die: ${r.result}`);
+  return r.result;
 }
 
 function centre(cells: readonly Cell[]): { x: number; y: number } {

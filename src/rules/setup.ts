@@ -82,7 +82,7 @@ export function newGame(s: Setup): Game {
   return {
     board: structuredClone(s.board), units: [], reserve, fallen: [], sides: s.sides.length,
     phase: "deploy", round: 0, side: first, first, active: [],
-    soul: s.sides.map(() => 0), soulUsed: s.sides.map(() => false), turns: {}, lasting: [],
+    soul: s.sides.map(() => 0), soulUsed: s.sides.map(() => false), activations: 0, turns: {}, lasting: [],
     seed, log, pending: null, winner: null,
   };
 }

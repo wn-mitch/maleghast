@@ -88,6 +88,8 @@ export interface Game {
   soul: number[];
   /** Whether each side has used a SOUL ability during the current unit turn. */
   soulUsed: boolean[];
+  /** Activations so far in the battle, for once-a-turn effects. */
+  activations: number;
   /** Each unit's count of turns started, for lasting effects. */
   turns: Record<string, number>;
   lasting: Lasting[];

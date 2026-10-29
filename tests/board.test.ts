@@ -17,7 +17,7 @@ function ground(b: Board, t: Terrain, ...cells: Cell[]): Board {
 }
 
 function unit(id: string, side: number, col: number, row: number, size: 1 | 2 = 1): Unit {
-  return { id, side, kind: "test", col, row, size, hp: 3, tokens: {}, done: false, unloaded: [] };
+  return { id, side, kind: "test", col, row, size, hp: 3, tokens: {}, done: false, unloaded: false };
 }
 
 describe("dice", () => {

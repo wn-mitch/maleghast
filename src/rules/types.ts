@@ -30,7 +30,8 @@ export interface Board {
   readonly corpses: number[];
 }
 
-export type Token = "strength" | "weak" | "vitality" | "vulnerable" | "speed" | "slow";
+/** The six generic tokens (p18), and the faction tokens the houses here use (p61). */
+export type Token = "strength" | "weak" | "vitality" | "vulnerable" | "speed" | "slow" | "berserk";
 export type Tokens = Partial<Record<Token, number>>;
 
 /** A unit on the battlefield. Its stats and abilities come from its kind (see content). */
@@ -48,6 +49,12 @@ export interface Unit {
   tokens: Tokens;
   /** Whether it has taken its turn this round. */
   done: boolean;
-  /** Abilities it has used that must be reloaded before their next use. */
-  unloaded: string[];
+  /** Whether reload abilities are spent until it reloads (p18). */
+  unloaded: boolean;
+  /** Blood Rage: it stands at 0 hp and the next damage slays it (p32). */
+  raging?: boolean;
+  /** A necromancer's chosen extra trait, ACT and SOUL ability, by id. */
+  picks?: string[];
+  /** Counters abilities keep on it, such as the round a once-a-round trait last fired. */
+  marks?: Record<string, number>;
 }

@@ -102,9 +102,10 @@ const COMPASS: readonly Cell[] = [{ col: 0, row: -1 }, { col: 1, row: 0 }, { col
  * has cover from a wall it stands beside, or from an elevated space beside
  * it while it stands on the ground. The edge it shares with that space
  * extends across the battlefield as a line, and the cover counts against an
- * attacker whose every square lies past that line.
+ * attacker whose every square lies past that line. `extra` adds squares
+ * that give cover as a wall does, such as units some rules let allies use.
  */
-export function inCover(b: Board, target: readonly Cell[], from: readonly Cell[]): boolean {
+export function inCover(b: Board, target: readonly Cell[], from: readonly Cell[], extra: ReadonlySet<number> = new Set()): boolean {
   const low = !elevated(b, target);
   const minCol = Math.min(...target.map((c) => c.col)), maxCol = Math.max(...target.map((c) => c.col));
   const minRow = Math.min(...target.map((c) => c.row)), maxRow = Math.max(...target.map((c) => c.row));
@@ -112,7 +113,7 @@ export function inCover(b: Board, target: readonly Cell[], from: readonly Cell[]
     const shields = target.some((c) => {
       const n = { col: c.col + d.col, row: c.row + d.row };
       if (!inBounds(b, n) || target.some((t) => t.col === n.col && t.row === n.row)) return false;
-      return isWall(b, n) || (low && terrainAt(b, n).elevated === true);
+      return isWall(b, n) || extra.has(index(b, n)) || (low && terrainAt(b, n).elevated === true);
     });
     if (!shields) continue;
     const past = (c: Cell) => d.col > 0 ? c.col > maxCol : d.col < 0 ? c.col < minCol : d.row > 0 ? c.row > maxRow : c.row < minRow;

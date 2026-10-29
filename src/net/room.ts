@@ -17,6 +17,8 @@ export interface Seat {
 export interface Room {
   readonly seats: readonly (Seat | null)[];
   readonly game: Game | null;
+  /** The battle before each of one seat's latest commands, newest last, while none of them rolled dice or asked anyone anything. */
+  readonly undo?: { readonly seat: number; readonly stack: readonly Game[] } | null;
 }
 
 export interface Player {
@@ -33,6 +35,8 @@ export type ClientMsg =
   | { readonly t: "list"; readonly list: SideSetup }
   /** Play a command as your side. */
   | { readonly t: "cmd"; readonly cmd: Command }
+  /** Take back your last command, if it rolled no dice and asked no one anything. */
+  | { readonly t: "undo" }
   /** After the battle, clear it and both lists to play again. */
   | { readonly t: "rematch" };
 
@@ -43,7 +47,7 @@ export interface SeatView {
 }
 
 export type ServerMsg =
-  | { readonly t: "state"; readonly seats: readonly (SeatView | null)[]; readonly game: Game | null; readonly you: number | null }
+  | { readonly t: "state"; readonly seats: readonly (SeatView | null)[]; readonly game: Game | null; readonly you: number | null; readonly undo: boolean }
   | { readonly t: "error"; readonly message: string };
 
 export const emptyRoom = (): Room => ({ seats: [null, null], game: null });
@@ -79,7 +83,7 @@ export function handle(room: Room, who: Player, msg: ClientMsg, seed: () => numb
       const seats = room.seats.map((s, i) => (i === mine && s ? { ...s, list: msg.list } : s));
       const lists = seats.map((s) => s?.list ?? null);
       if (lists.every((l): l is SideSetup => l !== null)) {
-        return { seats, game: newGame({ board: emptyBoard(8), sides: lists, seed: seed() }) };
+        return { seats, game: newGame({ board: emptyBoard(8), sides: lists, seed: seed() }), undo: null };
       }
       return { ...room, seats };
     }
@@ -87,14 +91,34 @@ export function handle(room: Room, who: Player, msg: ClientMsg, seed: () => numb
       if (mine === null) throw new Error("you are watching");
       if (!room.game) throw new Error("the battle hasn't started");
       if (msg.cmd.side !== mine) throw new Error("you can only command your own side");
-      return { ...room, game: apply(room.game, msg.cmd) };
+      const game = apply(room.game, msg.cmd);
+      return { ...room, game, undo: undoAfter(room, mine, room.game, game, msg.cmd) };
+    }
+    case "undo": {
+      const u = room.undo;
+      if (mine === null || !u || u.seat !== mine || !u.stack.length) throw new Error("nothing to take back");
+      const stack = u.stack.slice(0, -1);
+      return { ...room, game: u.stack[u.stack.length - 1]!, undo: stack.length ? { seat: mine, stack } : null };
     }
     case "rematch": {
       if (mine === null) throw new Error("you are watching");
       if (room.game?.phase !== "over") throw new Error("the battle isn't over");
-      return { seats: room.seats.map((s) => s && { ...s, list: null }), game: null };
+      return { seats: room.seats.map((s) => s && { ...s, list: null }), game: null, undo: null };
     }
   }
+}
+
+const TAKEBACK: ReadonlySet<Command["kind"]> = new Set(["activate", "move", "reload", "revert"]);
+
+/**
+ * The take-backs after `seat` plays `cmd`: it can be taken back if it is a
+ * kind without dice, rolled none, and left no choice waiting, so undoing it
+ * reveals nothing. Anything else clears them.
+ */
+function undoAfter(room: Room, seat: number, before: Game, after: Game, cmd: Command): Room["undo"] {
+  if (!TAKEBACK.has(cmd.kind) || after.seed !== before.seed || after.pending || after.phase !== "battle") return null;
+  const prior = room.undo?.seat === seat ? room.undo.stack : [];
+  return { seat, stack: [...prior, before] };
 }
 
 /** What a player sees: names, who is ready and online, and the battle. */
@@ -104,5 +128,6 @@ export function view(room: Room, online: ReadonlySet<string>, token: string): Se
     seats: room.seats.map((s) => s && { name: s.name, ready: s.list !== null, online: online.has(s.token) }),
     game: room.game,
     you: seatOf(room, token),
+    undo: !!room.undo && room.undo.seat === seatOf(room, token) && room.undo.stack.length > 0,
   };
 }

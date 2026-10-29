@@ -2,10 +2,12 @@
 // token so a reload or a dropped connection takes back the same seat.
 
 import type { ClientMsg, ServerMsg } from "../net/room";
+import type { Session } from "./local";
 
 const TOKEN_KEY = "maleghast.token";
 
-function token(): string {
+/** This browser's player token. */
+export function token(): string {
   let t = localStorage.getItem(TOKEN_KEY);
   if (!t) {
     t = crypto.randomUUID();
@@ -14,10 +16,12 @@ function token(): string {
   return t;
 }
 
-export class Connection {
+export class Connection implements Session {
   private ws: WebSocket | null = null;
   private retry = 500;
   private closed = false;
+  /** Messages sent while reconnecting, delivered once the socket is open again. */
+  private queue: string[] = [];
 
   constructor(
     private readonly code: string,
@@ -36,9 +40,11 @@ export class Connection {
     ws.onopen = () => {
       this.retry = 500;
       this.onStatus(true);
+      for (const m of this.queue.splice(0)) ws.send(m);
     };
     ws.onmessage = (e) => this.onMsg(JSON.parse(String(e.data)) as ServerMsg);
     ws.onclose = () => {
+      console.warn("connection closed; reconnecting");
       this.onStatus(false);
       if (this.closed) return;
       setTimeout(() => this.open(), this.retry);
@@ -47,7 +53,9 @@ export class Connection {
   }
 
   send(msg: ClientMsg): void {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
+    const m = JSON.stringify(msg);
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(m);
+    else this.queue.push(m);
   }
 
   close(): void {

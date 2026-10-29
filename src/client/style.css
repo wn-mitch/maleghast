@@ -74,3 +74,123 @@ button.chosen { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent)
 
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2b2925; border: 1px solid var(--error); color: var(--text); padding: 8px 14px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 #toast.show { opacity: 1; }
+
+.turn-buttons { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 6px; }
+.turn-buttons button { width: 40px; height: 40px; font-size: 20px; padding: 0; background: rgba(28, 27, 26, 0.85); }
+
+/* Before the battle: the rulebook's look. Black pages, a house-colored page edge,
+   white rules cards with grey section bars, blackletter heads over a book serif. */
+:root {
+  --ink: oklch(0.15 0.006 30);
+  --ink-2: oklch(0.21 0.006 30);
+  --paper: oklch(0.97 0.007 85);
+  --paper-dim: oklch(0.72 0.008 85);
+  --bar: oklch(0.79 0.004 85);
+  --carcass: oklch(0.64 0.27 350);
+  --goregrinders: oklch(0.74 0.18 52);
+  --gothic: "Grenze Gotisch", serif;
+  --block: "Anton", Impact, sans-serif;
+  --book: "Crimson Pro", Georgia, serif;
+}
+
+#app.prebattle #stage { display: none; }
+#app.prebattle #side { width: 100%; padding: 0; gap: 0; background: var(--ink); border: none; }
+
+.title { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 40px; padding: 48px 16px; background: var(--ink); }
+.title h1 { font: 800 clamp(72px, 14vw, 168px)/0.9 var(--gothic); color: var(--paper); letter-spacing: 0; text-transform: none; margin: 0; }
+.title-form { display: grid; gap: 14px; width: min(360px, 100%); }
+.title input { font: 400 22px var(--book); color: var(--paper); background: transparent; border: none; border-bottom: 2px solid var(--paper-dim); border-radius: 0; padding: 6px 2px; outline: none; }
+.title input:focus { border-color: var(--paper); }
+.title input.code { font: 400 22px var(--block); letter-spacing: 0.12em; text-transform: uppercase; }
+.title button { font: 400 20px var(--block); text-transform: uppercase; letter-spacing: 0.04em; color: var(--paper); background: transparent; border: 2px solid var(--paper); border-radius: 0; padding: 10px 18px; }
+.title button.big { background: var(--paper); color: var(--ink); padding: 14px 18px; font-size: 24px; margin-top: 10px; }
+.title button:hover { background: var(--paper); color: var(--ink); }
+.join-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; margin-top: 18px; }
+.watcher { font: 600 28px var(--gothic); color: var(--paper-dim); margin: 0; }
+
+.muster { --house: var(--carcass); height: 100%; display: grid; grid-template-rows: auto 1fr auto; color: var(--paper); overflow: hidden;
+  /* A halftone floor in the house's color, rising from the bottom of the page. */
+  background:
+    radial-gradient(circle, color-mix(in oklch, var(--house) 55%, transparent) 1.4px, transparent 1.6px) 0 0 / 9px 9px,
+    var(--ink);
+  background-blend-mode: normal;
+  -webkit-mask-image: none; }
+.muster::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: linear-gradient(to bottom, var(--ink) 30%, transparent 85%); }
+.muster > * { position: relative; }
+.muster.house-goregrinders { --house: var(--goregrinders); }
+
+.muster-top { display: flex; align-items: center; justify-content: space-between; gap: 16px 32px; flex-wrap: wrap; padding: 20px 32px 0; }
+.houses { display: flex; gap: 4px 28px; align-items: baseline; }
+.house { font: 800 clamp(30px, 3.4vw, 48px)/1 var(--gothic); color: oklch(0.42 0.006 30); background: none; border: none; padding: 0; letter-spacing: 0; transition: color 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.house:hover { color: oklch(0.62 0.006 30); border: none; }
+.house.on { color: var(--house); }
+.muster-go { display: flex; align-items: center; gap: 20px; }
+.foe { font: 600 24px var(--gothic); color: var(--paper-dim); }
+.slots { display: flex; gap: 6px; }
+.slots span { width: 22px; height: 22px; border: 2px solid var(--paper-dim); transform: rotate(45deg); }
+.slots span.full { background: var(--house); border-color: var(--house); }
+.slots span.half { background: linear-gradient(135deg, var(--house) 50%, transparent 50%); border-color: var(--house); }
+.slots.over span { border-color: oklch(0.65 0.22 25); background-color: oklch(0.65 0.22 25 / 0.3); }
+.ready { font: 400 22px var(--block); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink); background: var(--house); border: none; border-radius: 0; padding: 12px 34px; }
+.ready:disabled { background: oklch(0.32 0.006 30); color: var(--paper-dim); opacity: 1; }
+
+/* The field: the necromancer on the left, the warband standing on a common ground line. */
+.field { display: grid; grid-template-columns: 300px 1fr 320px; gap: 24px; align-items: end; padding: 12px 32px 8px; min-height: 0; }
+.leader { align-self: center; display: grid; gap: 10px; justify-items: center; position: relative; }
+.leader img { width: 220px; aspect-ratio: 491 / 611; object-fit: cover; border: 3px solid var(--paper); box-shadow: 10px 10px 0 var(--house); }
+.leader h2 { font: 800 40px/1 var(--gothic); color: var(--paper); margin: 6px 0 0; }
+.chips { display: grid; gap: 6px; width: 100%; }
+.chip { font: 600 19px var(--gothic); color: var(--paper); background: var(--ink); border: 2px solid var(--paper-dim); border-radius: 0; padding: 6px 12px; }
+.chip:hover, .chip.open { border-color: var(--house); color: var(--house); }
+.picker { position: absolute; left: calc(100% + 12px); top: 0; z-index: 3; width: 340px; max-height: 100%; overflow-y: auto; display: grid; background: var(--paper); color: var(--ink); border: 3px solid var(--ink); box-shadow: 8px 8px 0 var(--house); }
+.pick { display: grid; gap: 2px; text-align: left; font: 400 15px/1.3 var(--book); color: var(--ink); background: none; border: none; border-bottom: 1px solid var(--bar); border-radius: 0; padding: 10px 14px; }
+.pick strong { font: 600 20px var(--gothic); }
+.pick:hover { background: oklch(0.92 0.007 85); border-color: var(--bar); }
+.pick.on strong { color: var(--house); }
+
+.line { display: flex; align-items: flex-end; justify-content: center; height: min(58vh, 500px); overflow: hidden; padding-bottom: 6px; border-bottom: 3px solid var(--paper); min-width: 0; }
+.figure { --h: 0.75; flex: 1 1 0; min-width: 0; max-width: 240px; height: 100%; margin: 0 -8px; padding: 0; background: none; border: none; display: flex; align-items: flex-end; justify-content: center; transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), filter 0.25s; }
+.figure img { max-width: 100%; max-height: calc(var(--h) * 100%); width: auto; height: auto; object-fit: contain; }
+.figure:hover { transform: translateY(-6px); border: none; filter: drop-shadow(0 0 1px oklch(0.65 0.22 25)) drop-shadow(0 0 1px oklch(0.65 0.22 25)); }
+.figure:hover img { opacity: 0.7; }
+
+.inspect { align-self: center; font: 400 15px/1.35 var(--book); color: var(--paper); }
+.inspect h3 { font: 800 34px/1 var(--gothic); color: var(--house); margin: 0 0 10px; text-transform: none; letter-spacing: 0; }
+.inspect p { margin: 0 0 8px; color: oklch(0.85 0.007 85); }
+.inspect strong { color: var(--paper); font-weight: 700; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 14px; border-block: 1px solid oklch(0.4 0.006 30); padding: 8px 0; }
+.stat { display: grid; justify-items: center; }
+.stat b { font: 400 30px/1 var(--block); color: var(--paper); }
+.stat small { font: 600 14px var(--gothic); color: var(--paper-dim); }
+
+/* The house's units, ready to call up. */
+.tray { display: flex; justify-content: center; gap: 14px; padding: 14px 32px 22px; flex-wrap: wrap; }
+.tile { position: relative; display: grid; gap: 6px; justify-items: center; width: 128px; padding: 0; background: none; border: none; color: var(--paper-dim); }
+.tile img { width: 128px; height: 128px; object-fit: cover; object-position: top; border: 2px solid oklch(0.4 0.006 30); filter: grayscale(0.6) brightness(0.8); transition: filter 0.2s, border-color 0.2s, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.tile span { font: 600 18px/1.1 var(--gothic); }
+.tile:hover img { filter: none; border-color: var(--house); transform: translateY(-4px); }
+.tile:hover { color: var(--paper); border: none; }
+.tile.in img { filter: none; border-color: var(--paper); }
+.tile b { position: absolute; top: -10px; right: -10px; min-width: 32px; height: 32px; display: grid; place-items: center; font: 400 20px var(--block); color: var(--ink); background: var(--house); }
+
+@media (max-width: 1100px) {
+  .muster { flex: none; height: auto; min-height: 100%; grid-template-rows: auto auto auto; grid-template-columns: minmax(0, 1fr); overflow: visible; overflow-x: clip; }
+  .field > * { min-width: 0; }
+  .field { grid-template-columns: minmax(0, 1fr); align-items: center; }
+  .picker { position: static; width: 100%; }
+  .line { height: 300px; overflow-x: auto; justify-content: flex-start; }
+  .inspect { min-height: 0; }
+  .tray { position: sticky; bottom: 0; background: var(--ink); flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; gap: 10px; padding-block: 12px; }
+  .tile { width: 72px; flex: none; }
+  .tile img { width: 72px; height: 72px; }
+  .tile span { font-size: 14px; }
+  .tile b { top: -6px; right: -6px; min-width: 26px; height: 26px; font-size: 16px; }
+  .leader { grid-template-columns: 104px 1fr; align-items: start; justify-items: stretch; column-gap: 14px; }
+  .leader img { width: 104px; grid-row: span 2; box-shadow: 6px 6px 0 var(--house); }
+  .leader h2 { font-size: 30px; margin: 0; }
+  .chip { font-size: 16px; padding: 4px 10px; }
+  .picker { grid-column: 1 / -1; }
+  .line { height: 260px; }
+  .muster-top { padding: 14px 16px 0; }
+  .field, .tray { padding-inline: 16px; }
+}

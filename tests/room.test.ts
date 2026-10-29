@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { installContent } from "../src/content";
 import { type ClientMsg, type Player, type Room, emptyRoom, handle, view } from "../src/net/room";
 import type { SideSetup } from "../src/rules/setup";
+import { at, battle, the, turn } from "./play";
 
 installContent();
 
@@ -57,6 +58,45 @@ describe("room", () => {
     expect(next.game!.units.find((v) => v.id === u.id)).toMatchObject(at);
     // The room before is untouched: rooms are values.
     expect(r.game!.units).toHaveLength(0);
+  });
+
+  it("takes back moves that rolled nothing, one at a time, and only for the player who made them", () => {
+    let r = started();
+    // Deploy everything; deployment is never taken back.
+    while (r.game!.phase === "deploy") {
+      const g = r.game!, side = g.side, u = g.reserve.find((v) => v.side === side)!;
+      const rows = side === 0 ? [7, 6] : [0, 1];
+      const at = rows.flatMap((row) => Array.from({ length: 8 }, (_, col) => ({ col, row }))).find((c) => !g.units.some((v) => v.col === c.col && v.row === c.row))!;
+      r = send(r, [side === 0 ? ann : bo, { t: "cmd", cmd: { kind: "deploy", side, unit: u.id, at } }]);
+    }
+    expect(r.undo ?? null).toBeNull();
+    const side = r.game!.side, me = side === 0 ? ann : bo, them = side === 0 ? bo : ann;
+    const u = r.game!.units.find((v) => v.side === side && v.kind !== "operator" && v.kind !== "warlord")!;
+    const start = r.game!;
+    r = send(r, [me, { t: "cmd", cmd: { kind: "activate", side, units: [u.id] } }]);
+    const activated = r.game!;
+    const step = { col: u.col, row: side === 0 ? u.row - 1 : u.row + 1 };
+    r = send(r, [me, { t: "cmd", cmd: { kind: "move", side, unit: u.id, path: [step] } }]);
+    expect(view(r, new Set(), me.token)).toMatchObject({ undo: true });
+    expect(view(r, new Set(), them.token)).toMatchObject({ undo: false });
+    expect(() => send(r, [them, { t: "undo" }])).toThrow("nothing to take back");
+    r = send(r, [me, { t: "undo" }]);
+    expect(r.game).toEqual(activated);
+    r = send(r, [me, { t: "undo" }]);
+    expect(r.game).toEqual(start);
+    expect(() => send(r, [me, { t: "undo" }])).toThrow("nothing to take back");
+  });
+
+  it("won't take back a command that rolled dice, nor anything before it", () => {
+    const g = battle([{ kind: "gunwight", side: 0, at: at(3, 6) }, { kind: "carnifex", side: 1, at: at(3, 3) }]);
+    const gun = the(g, "gunwight"), cx = the(g, "carnifex", 1);
+    const t = turn(g, gun);
+    const seats = [{ token: ann.token, name: ann.name, list: CARCASS }, { token: bo.token, name: bo.name, list: GORE }];
+    const room: Room = { seats, game: t, undo: { seat: 0, stack: [g] } };
+    const shot = send(room, [ann, { t: "cmd", cmd: { kind: "act", side: 0, unit: gun.id, ability: "ol45", target: { kind: "unit", id: cx.id } } }]);
+    expect(shot.game!.seed).not.toBe(t.seed);
+    expect(shot.undo).toBeNull();
+    expect(() => send(shot, [ann, { t: "undo" }])).toThrow("nothing to take back");
   });
 
   it("clears the battle and both lists for a rematch, but only once it is over", () => {

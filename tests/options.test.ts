@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actOptions, chosen, deployOptions, moveOptions, readyUnits, refusal, requestOptions, soulOptions } from "../src/client/play";
+import { actOptions, chosen, deployOptions, moveOptions, readyUnits, refusal, requestOptions, soulOptions } from "../src/rules/options";
 import { apply } from "../src/rules/engine";
 import { at, battle, the, turn } from "./play";
 
@@ -32,6 +32,15 @@ describe("client options", () => {
     t = apply(t, moveOptions(t, 0, gun.id, false)[0]!.cmd);
     expect(moveOptions(t, 0, gun.id, false)).toEqual([]);
     expect(moveOptions(t, 1, gun.id, false)).toEqual([]);
+  });
+
+  it("treats a foe at 0 hp in its blood rage as standing in the way", () => {
+    const g = battle([{ kind: "gunwight", side: 0, at: at(3, 6) }, { kind: "warhead", side: 1, at: at(3, 5) }]);
+    Object.assign(g.units.find((u) => u.kind === "warhead")!, { hp: 0, raging: true });
+    const t = turn(g, the(g, "gunwight"));
+    const opts = moveOptions(t, 0, the(g, "gunwight").id, false);
+    expect(opts.map((o) => key(o.cells[0]!))).not.toContain("3,4");
+    for (const o of opts) expect(refusal(t, o.cmd)).toBeNull();
   });
 
   it("offers an attack's targets in range and sight, shown on the target's squares", () => {

@@ -1,16 +1,16 @@
-// What a player can do right now, as clickable options: each option is a set
+// What a player can do right now, as options: each option is a set
 // of squares to highlight and the command a click on them sends. The rules
-// engine decides what's legal; the client only offers what it would accept.
+// engine decides what is legal; the client and the AI only offer what it accepts.
 
-import { cellsOf, inBounds } from "../rules/board";
-import { defOf } from "../rules/content";
-import type { Ability } from "../rules/content";
-import { hasTrait, unit } from "../rules/effects";
-import { actsOf, apply, deployRows, moveBudget, targetError } from "../rules/engine";
-import { reachable } from "../rules/movement";
-import type { Command, Game, Target } from "../rules/state";
-import { necromancerOf, soulsOf } from "../rules/triggers";
-import type { Cell, Unit } from "../rules/types";
+import { cellsOf, inBounds } from "./board";
+import { defOf } from "./content";
+import type { Ability } from "./content";
+import { hasTrait, unit } from "./effects";
+import { actsOf, apply, deployRows, moveBudget, targetError } from "./engine";
+import { reachable } from "./movement";
+import type { Command, Game, Target } from "./state";
+import { necromancerOf, soulsOf } from "./triggers";
+import type { Cell, Unit } from "./types";
 
 export interface Option {
   readonly cells: readonly Cell[];
@@ -138,4 +138,42 @@ export function readyUnits(g: Game, side: number): Unit[] {
 
 export function isThrall(u: Unit): boolean {
   return defOf(u.kind).type === "thrall";
+}
+
+export interface Forecast {
+  /** Dice rolled; 0 or fewer rolls two and keeps the lowest. */
+  readonly dice: number;
+  /** The roll needed to hit. */
+  readonly needs: number;
+  /** The chance to hit, 0 to 1. */
+  readonly chance: number;
+}
+
+/** The chance a die pool of `dice` rolls `needs` or more: the best of the dice, or the worse of two at 0D or fewer. */
+export function hitChance(dice: number, needs: number): number {
+  const t = Math.min(7, Math.max(1, needs));
+  return dice <= 0 ? ((7 - t) / 6) ** 2 : 1 - ((t - 1) / 6) ** dice;
+}
+
+/**
+ * The attack roll `cmd` would make, read from a trial run through the engine,
+ * so cover, elevation, Formation and every ability's own dice are counted
+ * exactly as the real roll will count them. Null if it rolls no attack.
+ */
+export function forecast(g: Game, cmd: Command): Forecast | null {
+  let after: Game;
+  try {
+    after = apply(g, cmd);
+  } catch {
+    return null;
+  }
+  const before = after.pending ? after.pending.before.log.length : g.log.length;
+  for (const e of after.log.slice(before)) {
+    const m = /\((-?\d+)D\) against .*'s (\d+)\+/.exec(e.text);
+    if (m) {
+      const dice = Number(m[1]), needs = Number(m[2]);
+      return { dice, needs, chance: hitChance(dice, needs) };
+    }
+  }
+  return null;
 }

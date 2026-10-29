@@ -206,7 +206,11 @@ export function* slay(x: Ctx, u: Unit, obliterate: boolean): Gen {
 /** Damage to a wall: it falls at 0 hp. Walls take no other effects (p19). */
 export function hurtWall(g: Game, c: Cell, n: number): void {
   const i = index(g.board, c);
-  g.board.walls[i] = Math.max(0, (g.board.walls[i] ?? 0) - n);
+  const before = g.board.walls[i] ?? 0;
+  g.board.walls[i] = Math.max(0, before - n);
+  if (before > 0 && g.board.walls[i] === 0) {
+    g.board.terrain[i] = { ...g.board.terrain[i], rubble: true };
+  }
   log(g, g.board.walls[i] === 0 ? "The wall falls" : `The wall takes ${n} damage`, undefined, [c]);
 }
 

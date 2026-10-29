@@ -34,7 +34,7 @@ export function stepCost(b: Board, from: Cell, to: Cell, size: 1 | 2): number {
 export function reachable(b: Board, units: readonly Unit[], mover: Unit, budget: number, maxSpaces = Infinity): Map<number, Reach> {
   const foes = new Set<number>(), allies = new Set<number>();
   for (const u of units) {
-    if (u.id === mover.id || u.hp <= 0) continue;
+    if (u.id === mover.id) continue;
     for (const c of cellsOf(u)) (u.side === mover.side ? allies : foes).add(index(b, c));
   }
   const fits = (at: Cell) => footprint(at, mover.size).every((c) => inBounds(b, c) && !isWall(b, c) && !foes.has(index(b, c)));

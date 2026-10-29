@@ -9,6 +9,8 @@ export interface Cell {
 
 /** A battlefield space's terrain (p19). A wall is tracked separately, with its hit points. */
 export interface Terrain {
+  /** Remains of a destroyed wall; visual only, with no movement or sight effect. */
+  readonly rubble?: boolean;
   /** One abstract level up: +1 to enter from the ground, cover for units below it. */
   readonly elevated?: boolean;
   /** Lets units skip the cost of climbing onto elevation. */

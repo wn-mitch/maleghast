@@ -8,7 +8,7 @@
     "test": "vitest run",
     "worker": "wrangler dev",
     "deploy": "vite build && wrangler deploy",
-    "e2e": "node e2e/duel.mjs"
+    "e2e": "node e2e/duel.mjs && node e2e/solo.mjs"
   },
   "dependencies": {
     "three": "0.186.1"
